@@ -1,15 +1,19 @@
 {
   "name": "shiny-tracker",
-  "version": "1.0.0",
-  "description": "Discord bot that monitors Diamond Art Club restocks and notifies when new items appear",
-  "main": "index.js",
+  "version": "2.0.0",
+  "description": "Discord bot that monitors Diamond Art Club restocks — deployed on AWS Lambda",
+  "main": "handler.js",
   "scripts": {
-    "start": "node index.js"
+    "register": "node scripts/register-commands.js",
+    "build": "sam build",
+    "deploy": "sam build && sam deploy --guided"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1029.0",
+    "@aws-sdk/lib-dynamodb": "^3.1029.0",
     "axios": "^1.7.0",
     "cheerio": "^1.0.0",
-    "discord.js": "^14.16.0",
-    "dotenv": "^16.4.0"
+    "dotenv": "^16.4.0",
+    "tweetnacl": "^1.0.3"
   }
 }

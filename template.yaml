@@ -1,0 +1,82 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Shiny Tracker — Discord bot that monitors Diamond Art Club restocks
+
+Parameters:
+  DiscordToken:
+    Type: String
+    NoEcho: true
+    Description: Discord bot token
+  DiscordChannelId:
+    Type: String
+    Description: Discord channel ID for restock alerts
+  DiscordPublicKey:
+    Type: String
+    Description: Discord application public key (for interaction signature verification)
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 30
+    MemorySize: 256
+    Environment:
+      Variables:
+        DISCORD_TOKEN: !Ref DiscordToken
+        DISCORD_CHANNEL_ID: !Ref DiscordChannelId
+        TABLE_NAME: !Ref TrackerTable
+
+Resources:
+  # ---- DynamoDB ----
+  TrackerTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+
+  # ---- Scheduled check Lambda (CloudWatch Events every 5 min) ----
+  CheckFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handler.scheduledCheck
+      Description: Scrapes DAC restocks page and sends alerts for new items
+      Events:
+        ScheduledCheck:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
+            Enabled: true
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TrackerTable
+
+  # ---- Interaction handler Lambda (API Gateway for Discord webhook) ----
+  InteractionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handler.interactionHandler
+      Description: Handles Discord slash command interactions
+      Environment:
+        Variables:
+          DISCORD_PUBLIC_KEY: !Ref DiscordPublicKey
+      Events:
+        DiscordInteraction:
+          Type: HttpApi
+          Properties:
+            Path: /interactions
+            Method: POST
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TrackerTable
+
+Outputs:
+  InteractionsUrl:
+    Description: Set this as your Discord Interactions Endpoint URL in the Developer Portal
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/interactions"
+  TableName:
+    Description: DynamoDB table name
+    Value: !Ref TrackerTable
