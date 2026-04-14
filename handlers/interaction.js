@@ -1,61 +1,26 @@
-const db = require("./lib/db");
-const { fetchProducts, CHECK_URL } = require("./lib/scraper");
-const discord = require("./lib/discord");
+const db = require("../lib/db");
+const discord = require("../lib/discord");
 
 const CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
 const PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY;
+const CHECK_URL =
+  "https://www.diamondartclub.com/collections/diamond-painting-restocks";
 
-// ---------------------------------------------------------------------------
-// Scheduled check — triggered by CloudWatch Events every 5 minutes
-// ---------------------------------------------------------------------------
-exports.scheduledCheck = async () => {
-  const products = await fetchProducts();
-
-  if (products.length === 0) {
-    console.log("No products found on page — the page structure may have changed.");
-    return;
+// Inlined so this handler doesn't import lib/wishlist.js (which pulls puppeteer
+// into the esbuild graph even though it's lazy-required at runtime).
+function extractLid(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.searchParams.get("lid") || "";
+  } catch {
+    return "";
   }
-
-  const knownProducts = await db.getKnownProducts();
-
-  // First run — seed products without alerting
-  if (knownProducts.size === 0) {
-    await db.addProducts(products.map((p) => p.title));
-    console.log(`Initial scan complete — seeded ${products.length} products.`);
-    return;
-  }
-
-  const newProducts = products.filter((p) => !knownProducts.has(p.title));
-
-  if (newProducts.length === 0) {
-    console.log(`No new products. Tracking ${knownProducts.size}.`);
-    return;
-  }
-
-  console.log(`Found ${newProducts.length} new product(s)!`);
-  await db.addProducts(newProducts.map((p) => p.title));
-
-  const embeds = newProducts.map((p) => discord.buildEmbed(p));
-  const content = `\u{1F514} **New Restock Alert!** (${newProducts.length} new item${newProducts.length > 1 ? "s" : ""})`;
-
-  // Post to channel
-  await discord.sendChannelMessage(CHANNEL_ID, content, embeds);
-
-  // DM subscribers
-  const subscriberIds = await db.getSubscribers();
-  for (const userId of subscriberIds) {
-    try {
-      await discord.sendDM(userId, content, embeds);
-    } catch (err) {
-      console.error(`Could not DM user ${userId}: ${err.message}`);
-    }
-  }
-};
+}
 
 // ---------------------------------------------------------------------------
 // Interaction handler — triggered by API Gateway (Discord Interactions Endpoint)
 // ---------------------------------------------------------------------------
-exports.interactionHandler = async (event) => {
+exports.handler = async (event) => {
   const signature = event.headers["x-signature-ed25519"];
   const timestamp = event.headers["x-signature-timestamp"];
   const rawBody = event.isBase64Encoded
@@ -75,15 +40,20 @@ exports.interactionHandler = async (event) => {
 
   // Slash command
   if (interaction.type === 2 && interaction.data.name === "shiny-alerts") {
-    const sub = interaction.data.options[0].name;
+    const subOption = interaction.data.options[0];
+    const sub = subOption.name;
+    const subArgs = {};
+    for (const opt of subOption.options || []) {
+      subArgs[opt.name] = opt.value;
+    }
     const userId = interaction.member?.user?.id || interaction.user?.id;
-    return handleAlertCommand(sub, userId);
+    return handleAlertCommand(sub, userId, subArgs);
   }
 
   return { statusCode: 400, body: "Unknown interaction" };
 };
 
-async function handleAlertCommand(sub, userId) {
+async function handleAlertCommand(sub, userId, args = {}) {
   if (sub === "subscribe") {
     if (await db.isSubscribed(userId)) {
       return ephemeral("You're already subscribed to restock alerts!");
@@ -99,8 +69,19 @@ async function handleAlertCommand(sub, userId) {
       return ephemeral("You're not currently subscribed.");
     }
     await db.removeSubscriber(userId);
+
+    // Also clean up any tracked wishlists so they don't linger in the DB.
+    const wishlists = await db.getWishlistsForUser(userId);
+    for (const w of wishlists) {
+      await db.removeWishlist(userId, w.lid);
+    }
+
+    const wishlistNote =
+      wishlists.length > 0
+        ? ` Your ${wishlists.length} tracked wishlist${wishlists.length > 1 ? "s were" : " was"} also removed.`
+        : "";
     return ephemeral(
-      "You've been unsubscribed. You'll no longer receive DM alerts."
+      `You've been unsubscribed. You'll no longer receive DM alerts.${wishlistNote}`
     );
   }
 
@@ -153,6 +134,58 @@ async function handleAlertCommand(sub, userId) {
       `DM alert: ${dmOk ? "\u2705 sent \u2014 check your DMs" : "\u274C failed \u2014 make sure your DMs are open"}`,
     ];
     return ephemeral(results.join("\n"));
+  }
+
+  if (sub === "wishlist-add") {
+    const url = (args.url || "").trim();
+    const lid = extractLid(url);
+    if (!lid) {
+      return ephemeral(
+        "Invalid wishlist URL \u2014 make sure it contains a `lid=...` parameter."
+      );
+    }
+    await db.addWishlist(userId, lid, url, "");
+    let autoSubscribed = false;
+    if (!(await db.isSubscribed(userId))) {
+      await db.addSubscriber(userId);
+      autoSubscribed = true;
+    }
+    const lines = [
+      `\u2705 Wishlist added (id: \`${lid.slice(0, 8)}\`).`,
+      autoSubscribed
+        ? "You've also been subscribed to restock alerts."
+        : "You're already subscribed to restock alerts.",
+      "When a restock is detected, you'll get a separate DM for any items on this wishlist.",
+    ];
+    return ephemeral(lines.join("\n"));
+  }
+
+  if (sub === "wishlist-remove") {
+    const url = (args.url || "").trim();
+    const lid = extractLid(url);
+    if (!lid) {
+      return ephemeral(
+        "Invalid wishlist URL \u2014 paste the same URL you used when adding it."
+      );
+    }
+    await db.removeWishlist(userId, lid);
+    return ephemeral(`\u2705 Wishlist \`${lid.slice(0, 8)}\` removed.`);
+  }
+
+  if (sub === "wishlists") {
+    const wishlists = await db.getWishlistsForUser(userId);
+    if (wishlists.length === 0) {
+      return ephemeral(
+        "You have no wishlists tracked. Add one with `/shiny-alerts wishlist-add url:<your-wishlist-url>`."
+      );
+    }
+    const lines = [
+      `You are tracking **${wishlists.length}** wishlist${wishlists.length > 1 ? "s" : ""}:`,
+      ...wishlists.map(
+        (w, i) => `${i + 1}. **${w.name}** \u2014 <${w.url}>`
+      ),
+    ];
+    return ephemeral(lines.join("\n"));
   }
 
   return ephemeral("Unknown subcommand.");

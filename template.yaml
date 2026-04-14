@@ -39,11 +39,18 @@ Resources:
           KeyType: HASH
 
   # ---- Scheduled check Lambda (CloudWatch Events every 5 min) ----
+  # Extra memory + timeout because this function launches headless Chromium
+  # to scrape user wishlists when a restock is detected.
+  # Uses default nodejs build (ships full node_modules) because chromium ships
+  # binary assets that esbuild can't bundle. Cold start here doesn't matter —
+  # only the interaction Lambda has the 3-second Discord deadline.
   CheckFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: handler.scheduledCheck
+      Handler: handlers/check.handler
       Description: Scrapes DAC restocks page and sends alerts for new items
+      MemorySize: 1536
+      Timeout: 120
       Events:
         ScheduledCheck:
           Type: Schedule
@@ -55,10 +62,23 @@ Resources:
             TableName: !Ref TrackerTable
 
   # ---- Interaction handler Lambda (API Gateway for Discord webhook) ----
+  # Bundled WITHOUT puppeteer/chromium so cold starts stay under Discord's
+  # 3-second interaction response deadline. handlers/interaction.js is
+  # deliberately written to not import lib/wishlist or lib/scraper, so esbuild
+  # never pulls puppeteer, chromium, or cheerio into the bundle graph.
   InteractionFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Target: node20
+        Sourcemap: false
+        EntryPoints:
+          - handlers/interaction.js
+        External:
+          - "@aws-sdk/*"
     Properties:
-      Handler: handler.interactionHandler
+      Handler: interaction.handler
       Description: Handles Discord slash command interactions
       Environment:
         Variables:
