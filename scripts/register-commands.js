@@ -35,6 +35,38 @@ const command = {
       description:
         "Send a test alert to the channel and DM you to verify everything works",
     },
+    {
+      type: 1,
+      name: "wishlist-add",
+      description:
+        "Add a Diamond Art Club wishlist URL (auto-subscribes you to alerts)",
+      options: [
+        {
+          type: 3,
+          name: "url",
+          description: "Full wishlist URL (must contain lid=... parameter)",
+          required: true,
+        },
+      ],
+    },
+    {
+      type: 1,
+      name: "wishlist-remove",
+      description: "Remove one of your tracked wishlists",
+      options: [
+        {
+          type: 3,
+          name: "url",
+          description: "The wishlist URL you previously added",
+          required: true,
+        },
+      ],
+    },
+    {
+      type: 1,
+      name: "wishlists",
+      description: "List the wishlists you are tracking",
+    },
   ],
 };
 
