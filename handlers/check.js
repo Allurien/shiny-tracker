@@ -43,26 +43,21 @@ exports.handler = async () => {
   console.log(`Found ${newProducts.length} new product(s)!`);
   await db.addProducts(newProducts.map((p) => p.title));
 
-  const embeds = newProducts.map((p) => discord.buildEmbed(p));
-  const content = `\u{1F514} **New Restock Alert!** (${newProducts.length} new item${newProducts.length > 1 ? "s" : ""})`;
-
-  // Post to channel
-  await discord.sendChannelMessage(CHANNEL_ID, content, embeds);
+  // Post to channel — caps embeds at 20 and lists overflow items as text.
+  await discord.sendRestockAlert(
+    (content, embeds) => discord.sendChannelMessage(CHANNEL_ID, content, embeds),
+    newProducts
+  );
 
   // DM subscribers + check each subscriber's wishlists for matches
   const subscriberIds = await db.getSubscribers();
-  await notifySubscribersWithWishlistMatches(subscriberIds, newProducts, content, embeds);
+  await notifySubscribersWithWishlistMatches(subscriberIds, newProducts);
 };
 
 // ---------------------------------------------------------------------------
 // Wishlist matching (runs only on new restock detection)
 // ---------------------------------------------------------------------------
-async function notifySubscribersWithWishlistMatches(
-  subscriberIds,
-  newProducts,
-  restockContent,
-  restockEmbeds
-) {
+async function notifySubscribersWithWishlistMatches(subscriberIds, newProducts) {
   const wishlistLib = require("../lib/wishlist");
 
   // Determine if anyone has wishlists at all — if not, skip browser entirely
@@ -84,9 +79,12 @@ async function notifySubscribersWithWishlistMatches(
 
   try {
     for (const { userId, wishlists } of subscriberWishlists) {
-      // Always send the base restock DM
+      // Always send the base restock DM — same cap/overflow behavior as the channel post.
       try {
-        await discord.sendDM(userId, restockContent, restockEmbeds);
+        await discord.sendRestockAlert(
+          (content, embeds) => discord.sendDM(userId, content, embeds),
+          newProducts
+        );
       } catch (err) {
         console.error(`Could not DM user ${userId}: ${err.message}`);
       }
