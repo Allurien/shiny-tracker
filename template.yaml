@@ -65,7 +65,7 @@ Resources:
   # Bundled WITHOUT puppeteer/chromium so cold starts stay under Discord's
   # 3-second interaction response deadline. handlers/interaction.js is
   # deliberately written to not import lib/wishlist or lib/scraper, so esbuild
-  # never pulls puppeteer, chromium, or cheerio into the bundle graph.
+  # never pulls puppeteer or chromium into the bundle graph.
   InteractionFunction:
     Type: AWS::Serverless::Function
     Metadata:
