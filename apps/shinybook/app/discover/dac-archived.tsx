@@ -23,6 +23,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { FilterChips, type ChipOption } from "@/src/components/FilterChips";
 import { PhotoImage } from "@/src/components/PhotoImage";
 import { SearchBar } from "@/src/components/SearchBar";
+import { SortMenu, type SortOption } from "@/src/components/SortMenu";
 import {
   cachedArchivedKits,
   fetchArchivedKits,
@@ -32,11 +33,20 @@ import {
 import { brandGradient, palette } from "@/src/theme/colors";
 
 type ShapeFilter = "all" | "round" | "square";
+type ArchiveSort = "title_asc" | "title_desc" | "price_asc" | "price_desc" | "artist_asc";
 
 const SHAPE_CHIPS: ChipOption<ShapeFilter>[] = [
   { id: "all", label: "All" },
   { id: "round", label: "Round" },
   { id: "square", label: "Square" },
+];
+
+const SORT_OPTIONS: SortOption<ArchiveSort>[] = [
+  { id: "title_asc", label: "Title A → Z" },
+  { id: "title_desc", label: "Title Z → A" },
+  { id: "price_asc", label: "Price: Low → High" },
+  { id: "price_desc", label: "Price: High → Low" },
+  { id: "artist_asc", label: "Artist A → Z" },
 ];
 
 export default function DacArchivedScreen() {
@@ -50,6 +60,7 @@ export default function DacArchivedScreen() {
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState("");
   const [shape, setShape] = useState<ShapeFilter>("all");
+  const [sort, setSort] = useState<ArchiveSort>("title_asc");
   const cancelled = useRef(false);
 
   useEffect(() => {
@@ -93,8 +104,22 @@ export default function DacArchivedScreen() {
     if (query.trim()) {
       list = list.filter((k) => matchesArchivedQuery(k, query));
     }
+    list = [...list].sort((a, b) => {
+      switch (sort) {
+        case "title_asc":
+          return (a.title ?? "").localeCompare(b.title ?? "");
+        case "title_desc":
+          return (b.title ?? "").localeCompare(a.title ?? "");
+        case "price_asc":
+          return (a.price ?? 0) - (b.price ?? 0);
+        case "price_desc":
+          return (b.price ?? 0) - (a.price ?? 0);
+        case "artist_asc":
+          return (a.artist ?? "").localeCompare(b.artist ?? "");
+      }
+    });
     return list;
-  }, [items, query, shape]);
+  }, [items, query, shape, sort]);
 
   return (
     <Box flex={1} bg="$background0">
@@ -141,9 +166,10 @@ export default function DacArchivedScreen() {
         />
       ) : null}
 
-      <Box pt="$3" pb="$2">
+      <HStack pt="$3" pb="$2" px="$4" alignItems="center" justifyContent="space-between">
         <FilterChips options={SHAPE_CHIPS} value={shape} onChange={setShape} />
-      </Box>
+        <SortMenu options={SORT_OPTIONS} value={sort} onChange={setSort} />
+      </HStack>
 
       {error ? (
         <Box
