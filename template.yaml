@@ -13,6 +13,22 @@ Parameters:
   DiscordPublicKey:
     Type: String
     Description: Discord application public key (for interaction signature verification)
+  AppTableName:
+    Type: String
+    Default: ""
+    Description: >
+      ShinyBook app DynamoDB table name (separate stack — set this so the
+      check function can read RESTOCK_SUB rows + wishlist paintings to fan out
+      Expo Push notifications. Leave blank to disable app push fan-out.
+  AppTableArn:
+    Type: String
+    Default: ""
+    Description: >
+      ARN of the app table referenced by AppTableName. Required when
+      AppTableName is set so the IAM policy can scope cross-stack reads.
+
+Conditions:
+  EnableAppPush: !Not [!Equals [!Ref AppTableName, ""]]
 
 Globals:
   Function:
@@ -24,6 +40,7 @@ Globals:
         DISCORD_TOKEN: !Ref DiscordToken
         DISCORD_CHANNEL_ID: !Ref DiscordChannelId
         TABLE_NAME: !Ref TrackerTable
+        APP_TABLE_NAME: !Ref AppTableName
 
 Resources:
   # ---- DynamoDB ----
@@ -60,6 +77,21 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref TrackerTable
+        # Cross-stack read access to the app's DynamoDB so the check function
+        # can find restock subscribers + their wishlist paintings. Skipped
+        # entirely (no policy attached) when AppTableArn is blank.
+        - !If
+          - EnableAppPush
+          - Statement:
+              - Effect: Allow
+                Action:
+                  - "dynamodb:Scan"
+                  - "dynamodb:Query"
+                  - "dynamodb:GetItem"
+                Resource:
+                  - !Ref AppTableArn
+                  - !Sub "${AppTableArn}/index/*"
+          - !Ref AWS::NoValue
 
   # ---- Interaction handler Lambda (API Gateway for Discord webhook) ----
   # Bundled WITHOUT puppeteer/chromium so cold starts stay under Discord's
