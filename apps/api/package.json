@@ -1,0 +1,19 @@
+{
+  "name": "shinybook-api",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.600.0",
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@aws-sdk/lib-dynamodb": "^3.600.0",
+    "@aws-sdk/s3-request-presigner": "^3.600.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.140",
+    "@types/node": "^20.14.0",
+    "sst": "3.19.3",
+    "typescript": "^5.5.0"
+  }
+}

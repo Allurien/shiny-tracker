@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "565445257972",
+    "project_id": "shinybook",
+    "storage_bucket": "shinybook.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:565445257972:android:2a8f2117d497ba30044ca1",
+        "android_client_info": {
+          "package_name": "com.allurien.shinybook"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "565445257972-vjr4l8oqbgudd50dckf5hd4bec209af5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAlDGNW4TmBZaNH8nvU9JfLW6j1RwXH23I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "565445257972-vjr4l8oqbgudd50dckf5hd4bec209af5.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

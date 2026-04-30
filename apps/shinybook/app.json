@@ -1,0 +1,72 @@
+{
+  "expo": {
+    "name": "ShinyBook",
+    "slug": "shinybook",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "shinybook",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "com.allurien.shinybook",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.allurien.shinybook",
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#0F0E1F",
+          "dark": {
+            "backgroundColor": "#0F0E1F"
+          }
+        }
+      ],
+      "expo-sqlite",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#0F0E1F"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b1f2088a-2cee-4d2d-b932-8438bcf95aff"
+      }
+    },
+    "owner": "allurien",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/b1f2088a-2cee-4d2d-b932-8438bcf95aff"
+    }
+  }
+}
