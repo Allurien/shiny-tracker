@@ -6,7 +6,7 @@ const { sendPushes } = require("../lib/expoPush");
 const { normalizeTitle } = require("../lib/wishlist");
 
 const APP_RESTOCK_URL =
-  "https://www.diamondartclub.com/collections/back-in-stock";
+  "https://www.diamondartclub.com/collections/diamond-painting-restocks";
 
 const CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
 
