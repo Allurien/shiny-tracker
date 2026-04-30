@@ -1,0 +1,46 @@
+{
+  "cli": {
+    "version": ">= 18.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "development"
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.allurien.dev",
+        "EXPO_PUBLIC_USER_POOL_ID": "us-east-1_6RqaqRtuQ",
+        "EXPO_PUBLIC_USER_POOL_CLIENT_ID": "7d7noq7nmu1i8hs1ntmtc789rd",
+        "EXPO_PUBLIC_COGNITO_DOMAIN": "shinybook-dev.auth.us-east-1.amazoncognito.com",
+        "EXPO_PUBLIC_PHOTOS_BUCKET": "shinybook-dev-photosbucket-bdnvvanf"
+      }
+    },
+    "production": {
+      "channel": "production",
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.allurien.dev",
+        "EXPO_PUBLIC_USER_POOL_ID": "us-east-1_6RqaqRtuQ",
+        "EXPO_PUBLIC_USER_POOL_CLIENT_ID": "7d7noq7nmu1i8hs1ntmtc789rd",
+        "EXPO_PUBLIC_COGNITO_DOMAIN": "shinybook-dev.auth.us-east-1.amazoncognito.com",
+        "EXPO_PUBLIC_PHOTOS_BUCKET": "shinybook-dev-photosbucket-bdnvvanf"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
