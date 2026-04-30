@@ -13,6 +13,7 @@ import { router } from "expo-router";
 import { useMemo } from "react";
 import { RefreshControl, ScrollView, StyleSheet } from "react-native";
 
+import { HeroWave } from "@/src/components/HeroWave";
 import { listDrills } from "@/src/repo/drills";
 import { countByStatus, listPaintings } from "@/src/repo/paintings";
 import { useAsyncFocus } from "@/src/hooks/useAsyncFocus";
@@ -94,6 +95,7 @@ export default function StatsScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.hero}
       >
+        <HeroWave />
         <Heading size="2xl" color={palette.text}>
           Stats
         </Heading>

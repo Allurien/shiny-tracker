@@ -62,6 +62,7 @@ const drillBase = z.object({
   drillNumber: z.string().min(1).max(100),
   brand: z.string().min(1).max(200),
   shape: z.enum(["round", "square", "specialty"]),
+  specialtyType: z.enum(["standard", "ab", "fairy_dust", "electro_diamond"]).optional(),
   approximateCount: z.number().int().nonnegative(),
   colorName: z.string().max(200).optional(),
   colorHex: z.string().max(20).optional(),

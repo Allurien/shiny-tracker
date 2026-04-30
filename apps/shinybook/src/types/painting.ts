@@ -73,10 +73,14 @@ export interface Painting {
 // undefined), so we need an explicit value to tell the server "clear this".
 // The local DB serializer and the server handler both interpret null as clear.
 export type PaintingPatch =
-  & Partial<Omit<Painting, "id" | "createdAt">>
+  & Partial<Omit<Painting, "id" | "createdAt" | "coverImage" | "progressPhotos" | "purchasedAt" | "receivedAt" | "startedAt" | "completedAt">>
   & {
     coverImage?: string | null;
     progressPhotos?: string[] | null;
+    purchasedAt?: string | null;
+    receivedAt?: string | null;
+    startedAt?: string | null;
+    completedAt?: string | null;
   };
 
 // Subset returned by scrapers — id/createdAt/etc. are added on save.

@@ -11,7 +11,7 @@ import {
 } from "@gluestack-ui/themed";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Alert, Modal, Platform, ScrollView, StyleSheet } from "react-native";
+import { Alert, Linking, Modal, Platform, ScrollView, StyleSheet } from "react-native";
 
 import { EmptyState } from "@/src/components/EmptyState";
 import { PhotoGrid } from "@/src/components/PhotoGrid";
@@ -133,9 +133,29 @@ export default function PaintingDetailScreen() {
                 {[painting.brand, painting.artist].filter(Boolean).join(" · ")}
               </Text>
             ) : null}
-            <HStack space="sm" alignItems="center" pt="$1">
+            <HStack space="sm" alignItems="center" pt="$1" flexWrap="wrap">
               <StatusBadge status={painting.status} />
               <QuantityBadge quantity={painting.quantity} />
+              {painting.sourceUrl ? (
+                <Pressable
+                  onPress={() => Linking.openURL(painting.sourceUrl!)}
+                  hitSlop={4}
+                  flexDirection="row"
+                  alignItems="center"
+                  bg={palette.surface}
+                  borderRadius="$full"
+                  borderWidth={1}
+                  borderColor={palette.border}
+                  px="$2"
+                  py="$1"
+                  style={{ gap: 4 }}
+                >
+                  <Ionicons name="open-outline" size={11} color={palette.textSubtle} />
+                  <Text size="xs" color={palette.textSubtle} numberOfLines={1}>
+                    {sourceUrlLabel(painting.sourceUrl)}
+                  </Text>
+                </Pressable>
+              ) : null}
             </HStack>
           </VStack>
 
@@ -422,6 +442,15 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       {children}
     </VStack>
   );
+}
+
+function sourceUrlLabel(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.hostname.replace(/^www\./, "");
+  } catch {
+    return url.slice(0, 30);
+  }
 }
 
 function capitalize(s: string): string {

@@ -10,12 +10,13 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { Alert, FlatList, RefreshControl, StyleSheet } from "react-native";
+import { Alert, FlatList, Linking, RefreshControl, StyleSheet } from "react-native";
 
 import { wishlistSourcesApi } from "@/src/api";
 import type { WishlistSource } from "@/src/api/wishlistSources";
 import { EmptyState } from "@/src/components/EmptyState";
 import { Fab } from "@/src/components/Fab";
+import { HeroWave } from "@/src/components/HeroWave";
 import { PaintingCard } from "@/src/components/PaintingCard";
 import { SearchBar, matchesQuery } from "@/src/components/SearchBar";
 import { SortMenu, type SortOption } from "@/src/components/SortMenu";
@@ -57,6 +58,7 @@ export default function WishlistScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.hero}
       >
+        <HeroWave />
         <HStack justifyContent="space-between" alignItems="flex-start">
           <VStack flex={1}>
             <Heading size="2xl" color={palette.text}>
@@ -165,6 +167,7 @@ function sortPaintings(list: Painting[], sort: WishlistSort): Painting[] {
 function SourcesSection() {
   const [sources, setSources] = useState<WishlistSource[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
 
   // Re-fetch whenever the wishlist tab regains focus — that's when the user
   // would notice stale data (e.g. just returned from the refresh modal and
@@ -176,9 +179,13 @@ function SourcesSection() {
       (async () => {
         try {
           const items = await wishlistSourcesApi.listSources();
-          if (!cancelled) setSources(items);
+          if (!cancelled) {
+            setSources(items);
+            setFetchError(false);
+          }
         } catch (err) {
           console.warn("[wishlist] failed to load sources", err);
+          if (!cancelled) setFetchError(true);
         } finally {
           if (!cancelled) setLoading(false);
         }
@@ -211,7 +218,27 @@ function SourcesSection() {
     );
   }
 
-  if (loading || sources.length === 0) return null;
+  if (loading) return null;
+
+  if (fetchError) {
+    return (
+      <Box
+        mx="$4"
+        mt="$3"
+        bg={`${palette.danger}15`}
+        borderRadius="$md"
+        borderWidth={1}
+        borderColor={palette.danger}
+        p="$3"
+      >
+        <Text size="sm" color={palette.danger}>
+          Couldn't load tracked wishlists. Check your connection and pull to refresh.
+        </Text>
+      </Box>
+    );
+  }
+
+  if (sources.length === 0) return null;
 
   return (
     <VStack space="sm" px="$4" pt="$3">
@@ -246,14 +273,21 @@ function SourceRow({
       p="$3"
     >
       <HStack space="sm" alignItems="center">
-        <VStack flex={1}>
-          <Text color={palette.text} numberOfLines={1}>
-            {source.name}
-          </Text>
+        <Pressable
+          flex={1}
+          onPress={() => Linking.openURL(source.url)}
+          hitSlop={4}
+        >
+          <HStack space="xs" alignItems="center">
+            <Text color={palette.text} numberOfLines={1} flex={1}>
+              {source.name}
+            </Text>
+            <Ionicons name="open-outline" size={13} color={palette.textSubtle} />
+          </HStack>
           <Text size="xs" color={palette.textSubtle}>
             Last synced {relativeTime(source.lastSyncedAt)}
           </Text>
-        </VStack>
+        </Pressable>
         <Pressable
           onPress={() =>
             router.push({

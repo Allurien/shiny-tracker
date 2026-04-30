@@ -8,12 +8,12 @@ export async function createDrill(
   const now = nowIso();
   const drill: Drill = { ...input, id: newId(), createdAt: now, updatedAt: now };
   await db.runAsync(
-    `INSERT INTO drills (id, drillNumber, brand, shape, approximateCount, colorName, colorHex, notes, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO drills (id, drillNumber, brand, shape, specialtyType, approximateCount, colorName, colorHex, notes, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      drill.id, drill.drillNumber, drill.brand, drill.shape, drill.approximateCount,
-      drill.colorName ?? null, drill.colorHex ?? null, drill.notes ?? null,
-      drill.createdAt, drill.updatedAt,
+      drill.id, drill.drillNumber, drill.brand, drill.shape, drill.specialtyType ?? null,
+      drill.approximateCount, drill.colorName ?? null, drill.colorHex ?? null,
+      drill.notes ?? null, drill.createdAt, drill.updatedAt,
     ]
   );
   return drill;
@@ -81,14 +81,15 @@ export async function applyRemoteDrill(
   const db = await getDb();
   await db.runAsync(
     `INSERT OR REPLACE INTO drills
-       (id, drillNumber, brand, shape, approximateCount, colorName, colorHex,
+       (id, drillNumber, brand, shape, specialtyType, approximateCount, colorName, colorHex,
         notes, createdAt, updatedAt, deletedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       remote.id,
       remote.drillNumber,
       remote.brand,
       remote.shape,
+      remote.specialtyType ?? null,
       remote.approximateCount,
       remote.colorName ?? null,
       remote.colorHex ?? null,

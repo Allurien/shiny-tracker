@@ -27,6 +27,7 @@ import { palette } from "@/src/theme/colors";
 import type {
   DrillShape,
   Painting,
+  PaintingPatch,
   PaintingSource,
   PaintingStatus,
 } from "@/src/types/painting";
@@ -50,12 +51,18 @@ export interface PaintingFormValues {
   currency: string;
   description: string;
   notes: string;
+  sourceUrl: string;
+  // Lifecycle dates stored as "MM/DD/YYYY" display strings; empty = not set.
+  purchasedAt: string;
+  receivedAt: string;
+  startedAt: string;
+  completedAt: string;
 }
 
 interface PaintingFormProps {
   initial?: Partial<Painting>;
   submitLabel?: string;
-  onSubmit: (values: Partial<Painting>) => Promise<void> | void;
+  onSubmit: (values: PaintingPatch) => Promise<void> | void;
   onCancel?: () => void;
 }
 
@@ -103,6 +110,11 @@ export function PaintingForm({
     currency: initial?.currency ?? "$",
     description: initial?.description ?? "",
     notes: initial?.notes ?? "",
+    sourceUrl: initial?.sourceUrl ?? "",
+    purchasedAt: isoToDisplay(initial?.purchasedAt),
+    receivedAt: isoToDisplay(initial?.receivedAt),
+    startedAt: isoToDisplay(initial?.startedAt),
+    completedAt: isoToDisplay(initial?.completedAt),
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -133,6 +145,11 @@ export function PaintingForm({
         currency: values.price ? values.currency : undefined,
         description: values.description.trim() || undefined,
         notes: values.notes.trim() || undefined,
+        sourceUrl: values.sourceUrl.trim() || undefined,
+        purchasedAt: datePatch(values.purchasedAt, initial?.purchasedAt),
+        receivedAt: datePatch(values.receivedAt, initial?.receivedAt),
+        startedAt: datePatch(values.startedAt, initial?.startedAt),
+        completedAt: datePatch(values.completedAt, initial?.completedAt),
       });
     } finally {
       setSubmitting(false);
@@ -272,6 +289,17 @@ export function PaintingForm({
             </Box>
           </HStack>
 
+          <Field label="Product URL">
+            <TextInput
+              value={values.sourceUrl}
+              onChangeText={(t) => set("sourceUrl", t)}
+              placeholder="https://..."
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+            />
+          </Field>
+
           <Field label="Description">
             <TextAreaInput
               value={values.description}
@@ -287,6 +315,31 @@ export function PaintingForm({
               placeholder="Anything to remember"
             />
           </Field>
+
+          {dateFieldsForStatus(values.status).length > 0 ? (
+            <VStack space="sm">
+              <Text
+                color={palette.textSubtle}
+                size="xs"
+                fontWeight="$semibold"
+                style={{ textTransform: "uppercase", letterSpacing: 0.5 }}
+              >
+                Dates
+              </Text>
+              {dateFieldsForStatus(values.status).map(({ key, label }) => (
+                <HStack key={key} space="md" alignItems="center">
+                  <Box flex={1}>
+                    <Field label={label}>
+                      <DateInput
+                        value={values[key as DateKey]}
+                        onChange={(v) => set(key as DateKey, v)}
+                      />
+                    </Field>
+                  </Box>
+                </HStack>
+              ))}
+            </VStack>
+          ) : null}
 
           <HStack space="md" pt="$2">
             {onCancel ? (
@@ -379,6 +432,105 @@ function TextAreaInput(props: React.ComponentProps<typeof TextareaInput>) {
         {...props}
       />
     </Textarea>
+  );
+}
+
+// ---- Date helpers ----
+
+type DateKey = "purchasedAt" | "receivedAt" | "startedAt" | "completedAt";
+
+const DATE_FIELDS: { key: DateKey; label: string; minStatus: PaintingStatus }[] = [
+  { key: "purchasedAt", label: "Ordered",  minStatus: "ordered" },
+  { key: "receivedAt",  label: "Received",    minStatus: "stash" },
+  { key: "startedAt",   label: "Started",     minStatus: "in_progress" },
+  { key: "completedAt", label: "Completed",   minStatus: "in_progress" },
+];
+
+const STATUS_ORDER: PaintingStatus[] = [
+  "wishlist", "ordered", "stash", "in_progress", "completed",
+];
+
+function dateFieldsForStatus(status: PaintingStatus) {
+  const rank = STATUS_ORDER.indexOf(status);
+  return DATE_FIELDS.filter((f) => STATUS_ORDER.indexOf(f.minStatus) <= rank);
+}
+
+// "2025-04-30" → "04/30/2025"
+function isoToDisplay(iso: string | undefined): string {
+  if (!iso) return "";
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return "";
+  return `${m[2]}/${m[3]}/${m[1]}`;
+}
+
+// "04/30/2025" → "2025-04-30" (noon UTC so timezone offsets don't flip the day)
+function displayToIso(display: string): string | undefined {
+  const trimmed = display.trim();
+  if (!trimmed) return undefined;
+  const m = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return undefined;
+  const [, mm, dd, yyyy] = m;
+  const month = parseInt(mm, 10);
+  const day = parseInt(dd, 10);
+  const year = parseInt(yyyy, 10);
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900) return undefined;
+  return `${yyyy}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+// Returns the date patch value: ISO string to set, null to clear, undefined to omit.
+function datePatch(display: string, initialIso: string | undefined): string | null | undefined {
+  const parsed = displayToIso(display);
+  if (parsed) return parsed;
+  // Empty input — only send null (clear) if it previously had a value.
+  return initialIso ? null : undefined;
+}
+
+function DateInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [raw, setRaw] = useState(value);
+  const isValid = !raw.trim() || !!displayToIso(raw);
+
+  function handleChange(text: string) {
+    // Auto-insert slashes as the user types digits.
+    const digits = text.replace(/\D/g, "").slice(0, 8);
+    let formatted = digits;
+    if (digits.length > 2) formatted = `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    if (digits.length > 4) formatted = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+    setRaw(formatted);
+    onChange(formatted);
+  }
+
+  function handleClear() {
+    setRaw("");
+    onChange("");
+  }
+
+  return (
+    <Input
+      bg={palette.surface}
+      borderColor={!isValid ? palette.danger : palette.border}
+      $focus-borderColor={palette.teal}
+    >
+      <InputField
+        color={palette.text}
+        placeholderTextColor={palette.textSubtle}
+        placeholder="MM/DD/YYYY"
+        value={raw}
+        onChangeText={handleChange}
+        keyboardType="number-pad"
+        maxLength={10}
+      />
+      {raw ? (
+        <Pressable onPress={handleClear} px="$2" justifyContent="center">
+          <Ionicons name="close-circle" size={16} color={palette.textSubtle} />
+        </Pressable>
+      ) : null}
+    </Input>
   );
 }
 

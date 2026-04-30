@@ -13,6 +13,7 @@ import { FlatList, RefreshControl, StyleSheet } from "react-native";
 
 import { EmptyState } from "@/src/components/EmptyState";
 import { FilterChips, type ChipOption } from "@/src/components/FilterChips";
+import { HeroWave } from "@/src/components/HeroWave";
 import { PaintingCard } from "@/src/components/PaintingCard";
 import { SearchBar, matchesQuery } from "@/src/components/SearchBar";
 import { SortMenu, type SortOption } from "@/src/components/SortMenu";
@@ -106,6 +107,7 @@ export default function LogbookScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.hero}
       >
+        <HeroWave />
         <HStack justifyContent="space-between" alignItems="flex-start">
           <VStack flex={1}>
             <Heading size="2xl" color={palette.text}>

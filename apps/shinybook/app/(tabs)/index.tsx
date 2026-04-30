@@ -15,6 +15,7 @@ import { FlatList, Modal, RefreshControl, ScrollView, StyleSheet } from "react-n
 import { EmptyState } from "@/src/components/EmptyState";
 import { Fab } from "@/src/components/Fab";
 import { FilterChips, type ChipOption } from "@/src/components/FilterChips";
+import { HeroWave } from "@/src/components/HeroWave";
 import { PaintingCard } from "@/src/components/PaintingCard";
 import { SearchBar, matchesQuery } from "@/src/components/SearchBar";
 import { SortMenu, type SortOption } from "@/src/components/SortMenu";
@@ -162,7 +163,7 @@ export default function StashScreen() {
   const statusOptions: ChipOption<StashFilter>[] = [
     { id: "all", label: "All", count: counts.all },
     { id: "in_progress", label: "In progress", count: counts.in_progress },
-    { id: "stash", label: "On hand", count: counts.stash },
+    { id: "stash", label: "Stash", count: counts.stash },
     { id: "ordered", label: "Ordered", count: counts.ordered },
   ];
 
@@ -182,13 +183,14 @@ export default function StashScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.hero}
       >
+        <HeroWave />
         <HStack justifyContent="space-between" alignItems="flex-start">
           <VStack flex={1}>
             <Heading size="2xl" color={palette.text}>
-              Your Stash
+              Stash
             </Heading>
             <Text color={palette.text} opacity={0.85}>
-              On hand, on the way, and in progress
+              In stash, on the way, and in progress
             </Text>
           </VStack>
           <Pressable

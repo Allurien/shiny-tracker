@@ -101,7 +101,22 @@ function matchInner(html: string, openTagRe: RegExp): string | undefined {
 function extractTitle(html: string): string | undefined {
   const inner = matchInner(html, /<span\b[^>]*id=["']productTitle["'][^>]*>/i);
   if (!inner) return undefined;
-  return decodeEntities(stripHtml(inner)).trim() || undefined;
+  const raw = decodeEntities(stripHtml(inner)).trim();
+  return normalizeAmazonTitle(raw) || undefined;
+}
+
+// Strip the brand prefix DAC stamps on Amazon listings and drop the generic
+// "Diamond Painting Kit …" suffix that follows the actual painting name.
+//   "DIAMOND ART CLUB Rainbow Galaxy-Bear Diamond Painting Kit, Fun DIY …"
+//     → "Rainbow Galaxy-Bear"
+function normalizeAmazonTitle(title: string): string {
+  // 1. Strip leading brand prefix (all-caps variant DAC uses on Amazon).
+  let t = title.replace(/^DIAMOND\s+ART\s+CLUB\s+/i, "").trim();
+  // 2. Find "Diamond Painting Kit" (preceded by any combo of spaces/punctuation)
+  //    and drop it plus everything after. Use search() so we can slice cleanly.
+  const kitIdx = t.search(/\s*[,\-–—|]?\s*Diamond\s+Painting\s+Kit\b/i);
+  if (kitIdx > 0) t = t.slice(0, kitIdx).trim();
+  return t;
 }
 
 function extractCoverImage(html: string): string | undefined {

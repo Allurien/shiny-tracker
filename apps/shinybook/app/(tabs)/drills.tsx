@@ -8,6 +8,7 @@ import { DrillCard } from "@/src/components/DrillCard";
 import { EmptyState } from "@/src/components/EmptyState";
 import { Fab } from "@/src/components/Fab";
 import { FilterChips, type ChipOption } from "@/src/components/FilterChips";
+import { HeroWave } from "@/src/components/HeroWave";
 import { listDrills } from "@/src/repo/drills";
 import { useAsyncFocus } from "@/src/hooks/useAsyncFocus";
 import { brandGradient, palette } from "@/src/theme/colors";
@@ -60,6 +61,7 @@ export default function DrillsScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.hero}
       >
+        <HeroWave />
         <Heading size="2xl" color={palette.text}>
           Drills
         </Heading>

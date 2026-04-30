@@ -1,6 +1,3 @@
-// Reusable drill form. Mirrors the PaintingForm shape — owns its state,
-// validates, and calls onSubmit with a DB-ready partial.
-
 import {
   Box,
   Button,
@@ -8,6 +5,8 @@ import {
   HStack,
   Input,
   InputField,
+  Pressable,
+  Text,
   Textarea,
   TextareaInput,
   VStack,
@@ -20,22 +19,69 @@ import {
   StyleSheet,
 } from "react-native";
 
+import { lookupDmc } from "@/src/data/dmcColors";
 import { palette } from "@/src/theme/colors";
-import type { Drill } from "@/src/types/drill";
+import {
+  DAC_SPECIALTY_PREFIXES,
+  type Drill,
+  type DrillSpecialtyType,
+} from "@/src/types/drill";
 
+import { DmcColorPicker } from "./DmcColorPicker";
 import { Field } from "./Field";
 import { SegmentedControl } from "./SegmentedControl";
 
-const SHAPE_OPTIONS: { id: Drill["shape"]; label: string }[] = [
-  { id: "round", label: "Round" },
-  { id: "square", label: "Square" },
-  { id: "specialty", label: "Specialty" },
+type BrandKey = "dac" | "oraloa" | "other";
+
+const BRAND_OPTIONS: { id: BrandKey; label: string }[] = [
+  { id: "dac", label: "DAC" },
+  { id: "oraloa", label: "Oraloa" },
+  { id: "other", label: "Other" },
 ];
 
+const SHAPE_OPTIONS: { id: "round" | "square"; label: string }[] = [
+  { id: "round", label: "Round" },
+  { id: "square", label: "Square" },
+];
+
+const SPECIALTY_BASE: { id: DrillSpecialtyType; label: string }[] = [
+  { id: "standard", label: "Standard" },
+  { id: "ab", label: "AB" },
+];
+
+const SPECIALTY_DAC: { id: DrillSpecialtyType; label: string }[] = [
+  ...SPECIALTY_BASE,
+  { id: "fairy_dust", label: "Fairy Dust" },
+  { id: "electro_diamond", label: "Electro ◆" },
+];
+
+function resolveBrandKey(brand: string): BrandKey {
+  if (brand === "Diamond Art Club") return "dac";
+  if (brand === "Oraloa") return "oraloa";
+  return "other";
+}
+
+function brandFromKey(key: BrandKey, custom: string): string {
+  if (key === "dac") return "Diamond Art Club";
+  if (key === "oraloa") return "Oraloa";
+  return custom.trim();
+}
+
+// For DAC drills stored with a prefix (AB310, Z310, L310), strip it back
+// to the raw base number and recover the specialty type.
+function stripDacPrefix(drillNumber: string): { base: string; specialtyType: DrillSpecialtyType } {
+  if (drillNumber.startsWith("AB")) return { base: drillNumber.slice(2), specialtyType: "ab" };
+  if (drillNumber.startsWith("Z")) return { base: drillNumber.slice(1), specialtyType: "fairy_dust" };
+  if (drillNumber.startsWith("L")) return { base: drillNumber.slice(1), specialtyType: "electro_diamond" };
+  return { base: drillNumber, specialtyType: "standard" };
+}
+
 interface DrillFormValues {
-  drillNumber: string;
-  brand: string;
-  shape: Drill["shape"];
+  baseNumber: string;
+  brandKey: BrandKey;
+  customBrand: string;
+  shape: "round" | "square";
+  specialtyType: DrillSpecialtyType;
   approximateCount: string;
   colorName: string;
   colorHex: string;
@@ -55,33 +101,74 @@ export function DrillForm({
   onSubmit,
   onCancel,
 }: DrillFormProps) {
+  const initBrandKey = resolveBrandKey(initial?.brand ?? "");
+  const { base: initBase, specialtyType: detectedSpecialty } =
+    initBrandKey === "dac" && initial?.drillNumber
+      ? stripDacPrefix(initial.drillNumber)
+      : { base: initial?.drillNumber ?? "", specialtyType: (initial?.specialtyType ?? "standard") as DrillSpecialtyType };
+
   const [values, setValues] = useState<DrillFormValues>({
-    drillNumber: initial?.drillNumber ?? "",
-    brand: initial?.brand ?? "",
-    shape: initial?.shape ?? "round",
+    baseNumber: initBase,
+    brandKey: initBrandKey,
+    customBrand: initBrandKey === "other" ? (initial?.brand ?? "") : "",
+    shape: initial?.shape === "specialty" || !initial?.shape ? "round" : initial.shape,
+    specialtyType: initial?.specialtyType ?? detectedSpecialty,
     approximateCount: initial?.approximateCount?.toString() ?? "",
     colorName: initial?.colorName ?? "",
     colorHex: initial?.colorHex ?? "",
     notes: initial?.notes ?? "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
-  const set = <K extends keyof DrillFormValues>(
-    key: K,
-    val: DrillFormValues[K]
-  ) => setValues((v) => ({ ...v, [key]: val }));
+  const set = <K extends keyof DrillFormValues>(key: K, val: DrillFormValues[K]) =>
+    setValues((v) => ({ ...v, [key]: val }));
 
-  // Live swatch — accept short hex or longhand, prefix # if missing.
+  const specialtyOptions = values.brandKey === "dac" ? SPECIALTY_DAC : SPECIALTY_BASE;
+
+  const handleBrandChange = (key: BrandKey) => {
+    setValues((v) => ({
+      ...v,
+      brandKey: key,
+      // Clamp DAC-only specialty types when switching away from DAC
+      specialtyType:
+        key !== "dac" &&
+        (v.specialtyType === "fairy_dust" || v.specialtyType === "electro_diamond")
+          ? "standard"
+          : v.specialtyType,
+    }));
+  };
+
+  // Try DMC lookup when drill number changes; auto-fill empty color fields.
+  const handleNumberChange = (text: string) => {
+    const found = lookupDmc(text.trim());
+    setValues((v) => ({
+      ...v,
+      baseNumber: text,
+      colorName: found && !v.colorName ? found.name : v.colorName,
+      colorHex: found && !v.colorHex ? found.hex : v.colorHex,
+    }));
+  };
+
   const swatch = normalizeHex(values.colorHex);
 
+  const prefix =
+    values.brandKey === "dac" ? DAC_SPECIALTY_PREFIXES[values.specialtyType] : "";
+  const compiledNumber = prefix + values.baseNumber.trim();
+  const showCompiledHint = !!prefix && !!values.baseNumber.trim();
+
+  const brand = brandFromKey(values.brandKey, values.customBrand);
+  const canSubmit = !submitting && !!values.baseNumber.trim() && !!brand;
+
   const handleSubmit = async () => {
-    if (!values.drillNumber.trim() || !values.brand.trim()) return;
+    if (!canSubmit) return;
     setSubmitting(true);
     try {
       await onSubmit({
-        drillNumber: values.drillNumber.trim(),
-        brand: values.brand.trim(),
+        drillNumber: compiledNumber,
+        brand,
         shape: values.shape,
+        specialtyType: values.specialtyType,
         approximateCount: parseIntOrZero(values.approximateCount),
         colorName: values.colorName.trim() || undefined,
         colorHex: swatch ?? undefined,
@@ -102,27 +189,36 @@ export function DrillForm({
         keyboardShouldPersistTaps="handled"
       >
         <VStack space="md">
-          <HStack space="md">
-            <Box flex={1}>
-              <Field label="Drill number" required>
-                <TextInput
-                  value={values.drillNumber}
-                  onChangeText={(t) => set("drillNumber", t)}
-                  placeholder="e.g. 310"
-                  autoCapitalize="characters"
-                />
-              </Field>
-            </Box>
-            <Box flex={1}>
-              <Field label="Brand" required>
-                <TextInput
-                  value={values.brand}
-                  onChangeText={(t) => set("brand", t)}
-                  placeholder="DMC, DAC, Generic…"
-                />
-              </Field>
-            </Box>
-          </HStack>
+          <Field label="Brand" required>
+            <SegmentedControl
+              options={BRAND_OPTIONS}
+              value={values.brandKey}
+              onChange={handleBrandChange}
+            />
+          </Field>
+
+          {values.brandKey === "other" && (
+            <Field label="Brand name" required>
+              <TextInput
+                value={values.customBrand}
+                onChangeText={(t) => set("customBrand", t)}
+                placeholder="Enter brand name"
+              />
+            </Field>
+          )}
+
+          <Field
+            label="Drill number"
+            required
+            helper={showCompiledHint ? `Stored as: ${compiledNumber}` : undefined}
+          >
+            <TextInput
+              value={values.baseNumber}
+              onChangeText={handleNumberChange}
+              placeholder="e.g. 310"
+              autoCapitalize="characters"
+            />
+          </Field>
 
           <Field label="Shape">
             <SegmentedControl
@@ -132,23 +228,44 @@ export function DrillForm({
             />
           </Field>
 
+          <Field label="Finish">
+            <SegmentedControl
+              options={specialtyOptions}
+              value={values.specialtyType}
+              onChange={(v) => set("specialtyType", v)}
+            />
+          </Field>
+
           <Field label="Approximate count">
             <TextInput
               value={values.approximateCount}
-              onChangeText={(t) =>
-                set("approximateCount", t.replace(/[^0-9]/g, ""))
-              }
+              onChangeText={(t) => set("approximateCount", t.replace(/[^0-9]/g, ""))}
               placeholder="0"
               keyboardType="number-pad"
             />
           </Field>
 
           <Field label="Color name">
-            <TextInput
-              value={values.colorName}
-              onChangeText={(t) => set("colorName", t)}
-              placeholder="e.g. Cardinal Red"
-            />
+            <VStack space="xs">
+              <TextInput
+                value={values.colorName}
+                onChangeText={(t) => set("colorName", t)}
+                placeholder="e.g. Cardinal Red"
+              />
+              <Pressable
+                onPress={() => setPickerOpen(true)}
+                py="$1.5"
+                px="$3"
+                borderRadius="$md"
+                borderWidth={1}
+                borderColor={palette.teal}
+                alignSelf="flex-start"
+              >
+                <Text size="xs" color={palette.teal}>
+                  Browse DMC colors
+                </Text>
+              </Pressable>
+            </VStack>
           </Field>
 
           <Field label="Color hex" helper="Optional, for the swatch.">
@@ -196,17 +313,27 @@ export function DrillForm({
               flex={1}
               bg={palette.purple}
               onPress={handleSubmit}
-              isDisabled={
-                submitting ||
-                !values.drillNumber.trim() ||
-                !values.brand.trim()
-              }
+              isDisabled={!canSubmit}
             >
               <ButtonText>{submitting ? "Saving…" : submitLabel}</ButtonText>
             </Button>
           </HStack>
         </VStack>
       </ScrollView>
+
+      <DmcColorPicker
+        visible={pickerOpen}
+        selectedHex={normalizeHex(values.colorHex) ?? undefined}
+        onSelect={(entry) => {
+          setValues((v) => ({
+            ...v,
+            baseNumber: entry.number,
+            colorName: entry.name,
+            colorHex: entry.hex,
+          }));
+        }}
+        onClose={() => setPickerOpen(false)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -248,8 +375,6 @@ function parseIntOrZero(s: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-// Accepts "A21F1F", "#A21F1F", "fff", "#fff". Returns canonical "#xxxxxx"
-// (or "#xxx") with a leading hash, or null if it doesn't look like hex.
 function normalizeHex(raw: string): string | null {
   const t = raw.trim().replace(/^#/, "");
   if (!/^[0-9a-fA-F]+$/.test(t)) return null;

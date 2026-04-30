@@ -79,6 +79,34 @@ const INJECTED_JS = `
     var image = img ? (img.src || img.getAttribute('data-src') || '') : '';
     return { handle: handle, title: title || handle, image: image };
   }
+  function extractListName() {
+    // Try Swym-specific heading elements first, then fall back to the page title.
+    var selectors = [
+      '.swym-wishlist-name',
+      '.swym-shared-list-name',
+      '[class*="wishlist-name"]',
+      '[class*="list-name"]',
+      '#swym-shared-wishlist-render-container h1',
+      '#swym-shared-wishlist-render-container h2',
+      '.swym-readonly-wishlist-detail h1',
+      '.swym-readonly-wishlist-detail h2',
+    ];
+    for (var i = 0; i < selectors.length; i++) {
+      var el = document.querySelector(selectors[i]);
+      if (el) {
+        var text = (el.textContent || '').trim();
+        if (text && text.length < 120) return text;
+      }
+    }
+    // Page <title> often contains the list name (e.g. "My Wishlist | Diamond Art Club")
+    var pageTitle = (document.title || '').trim();
+    if (pageTitle) {
+      // Strip the site name suffix if present (anything after " | " or " - ").
+      var stripped = pageTitle.split(/\\s*[|\\-]\\s*/)[0].trim();
+      if (stripped && stripped.length < 120) return stripped;
+    }
+    return null;
+  }
   function collect() {
     for (var i = 0; i < CONTAINER_SELECTORS.length; i++) {
       var c = document.querySelector(CONTAINER_SELECTORS[i]);
@@ -118,6 +146,7 @@ const INJECTED_JS = `
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'result',
         items: Array.from(hit.items.values()),
+        listName: extractListName(),
         source: hit.source,
         diagnostics: size === 0 ? snapshotDiagnostics() : null,
       }));
@@ -170,6 +199,7 @@ function NativeWishlistImport() {
     if (prefilledUrl) setUrl(prefilledUrl);
   }, [prefilledUrl]);
   const [items, setItems] = useState<ScrapedItem[]>([]);
+  const [listName, setListName] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
@@ -216,11 +246,13 @@ function NativeWishlistImport() {
       const msg = JSON.parse(e.nativeEvent.data) as {
         type: string;
         items: ScrapedItem[];
+        listName?: string | null;
         source?: string | null;
         diagnostics?: string[] | null;
       };
       if (msg.type === "result") {
         setItems(msg.items);
+        setListName(msg.listName ?? null);
         setSelected(new Set(msg.items.map((i) => i.handle)));
         setPhase(msg.items.length > 0 ? "review" : "input");
         if (msg.items.length === 0) {
@@ -286,7 +318,7 @@ function NativeWishlistImport() {
         await wishlistSourcesApi.putSource({
           id: lid,
           url: url.trim(),
-          name: deriveSourceName(url.trim(), lid),
+          name: listName ?? deriveSourceName(url.trim(), lid),
           snapshotHandles: items.map((i) => i.handle),
         });
       }

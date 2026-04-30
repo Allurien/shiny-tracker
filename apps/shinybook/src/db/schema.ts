@@ -136,6 +136,14 @@ const MIGRATIONS: Array<{ version: number; up: string }> = [
       ALTER TABLE paintings ADD COLUMN eventName TEXT;
     `,
   },
+  {
+    // v6: drill specialty type (finish coating applied on top of shape).
+    // NULL means "standard" for pre-existing rows.
+    version: 6,
+    up: `
+      ALTER TABLE drills ADD COLUMN specialtyType TEXT;
+    `,
+  },
 ];
 
 export async function initDb(): Promise<void> {
